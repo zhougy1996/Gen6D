@@ -302,8 +302,11 @@ def parse_database_name(database_name:str)->BaseDatabase:
         'shapenet': ShapeNetRenderDatabase,
         'gso': GoogleScannedObjectDatabase,
     }
+    # database_name = 'linemod/ape'
+    # 使用/分割字符串，取第一个字符串作为数据库类型
     database_type = database_name.split('/')[0]
     if database_type in name2database:
+        # 通过数据库类型，返回对应的数据库对象，数据集名称作为参数传入，用于获取数据集的子集
         return name2database[database_type](database_name)
     else:
         raise NotImplementedError

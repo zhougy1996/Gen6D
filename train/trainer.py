@@ -89,21 +89,28 @@ class Trainer:
         self.optimizer=self.lr_manager.construct_optimizer(self.optimizer,self.network)
 
     def __init__(self,cfg):
+        # 配置文件字典解包
         self.cfg={**self.default_cfg,**cfg}
+        # 创建模型文件夹
         self.model_name=cfg['name']
         self.model_dir=os.path.join('data/model',cfg['name'])
         if not os.path.exists(self.model_dir): os.mkdir(self.model_dir)
+        # 模型文件路径
         self.pth_fn=os.path.join(self.model_dir,'model.pth')
+        # 最佳模型文件路径
         self.best_pth_fn=os.path.join(self.model_dir,'model_best.pth')
 
     def run(self):
+        # 初始化
         self._init_dataset()
         self._init_network()
         self._init_logger()
 
+        # 加载模型
         best_para,start_step=self._load_model()
         train_iter=iter(self.train_set)
 
+        # 训练
         pbar=tqdm(total=self.cfg['total_step'],bar_format='{r_bar}')
         pbar.update(start_step)
         for step in range(start_step,self.cfg['total_step']):

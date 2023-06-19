@@ -204,14 +204,18 @@ class Gen6DTrainDataset(Dataset):
         self.cfg = {**self.default_cfg, **cfg}
         self.is_train = is_train
 
-        self.database_names = []
-        self.database_set_names = []
-        self.database_set_name2names = {}
+        self.database_names = [] # 训练中将使用的数据集名称，转换后的数据集名称，如co3d_train_128
+        self.database_set_names = [] # 训练中将使用的数据集名称，与配置文件中的数据集名称相同，如co3d_train
+        self.database_set_name2names = {} # 一个字典，key为数据集名称，value为数据集名称列表，如linemod_train -> [linemod/ape, linemod/can, ...]
+        # 将配置文件中的数据集名称转换为真实的数据集名称，如co3d_train -> co3d_train_128
+        # 创建一个新字典，只包含配置文件中的数据集名称，key为数据集名称，value为数据集名称列表
         for name in self.cfg['database_names']:
             self.database_names += name2database_names[name]
             self.database_set_names.append(name)
             self.database_set_name2names[name] = name2database_names[name]
 
+        # 一个字典，key为数据集名称，value为数据集对象
+        # parse_database_name函数将数据集名称转换为数据集对象，其中通过/分割数据集名称
         self.name2database = {}
         for name in tqdm(self.database_names):
             self.name2database[name] = parse_database_name(name)
@@ -219,15 +223,21 @@ class Gen6DTrainDataset(Dataset):
                 test_name = name.replace('test','ref')
                 self.name2database[test_name] = parse_database_name(test_name)
 
+        # 计算数据集中图像的数量累计和
         self.cum_que_num = np.cumsum([len(self.name2database[name].get_img_ids()) for name in self.database_names])
+        # 获取背景图像列表，数据集为coco
         self.background_img_list = get_coco_image_fn_list() # get_SUN397_image_fn_list()
         self.photometric_augment_modules = [
+            # 高斯模糊操作，参数 3 表示模糊的卷积核大小。
             T.GaussianBlur(3),
-            T.ColorJitter(brightness=0.3),
-            T.ColorJitter(contrast=0.2),
-            T.ColorJitter(hue=0.05),
-            T.ColorJitter(saturation=0.3),
+            # 随机调整图像的亮度，对比度，色调和饱和度。颜色抖动的参数是一个列表，列表中的每个元素是一个 0 到 1 之间的数字，表示颜色抖动的幅度。
+            T.ColorJitter(brightness=0.3), # 亮度
+            T.ColorJitter(contrast=0.2), # 对比度
+            T.ColorJitter(hue=0.05), # 色调
+            T.ColorJitter(saturation=0.3), # 饱和度
+            # 运动模糊 5 表示模糊的卷积核大小。
             MotionBlur(5),
+            # 阴影
             AdditiveShade(),
         ]
 
@@ -457,12 +467,15 @@ class DetectionTrainDataset(Gen6DTrainDataset):
     def __init__(self, cfg, is_train):
         cfg={**self.det_default_cfg, **cfg}
         super(DetectionTrainDataset, self).__init__(cfg, is_train)
+        # 生成背景数据集
         if is_train:
+            # 在训练时，背景数据集为配置文件database_names的数据集，不包含genmop和linemod
             self.name2back_database = {k:v for k,v in self.name2database.items() if (not k.startswith('genmop')) and (not k.startswith('linemod'))}
         else:
+            # 在验证时，背景数据集为配置文件中background_database_name的数据集，如gso_train_128
             random.seed(1234)
             background_names = name2database_names[self.cfg['background_database_name']]
-            random.shuffle(background_names)
+            random.shuffle(background_names) # 对背景数据集进行随机打乱
             background_names = background_names[:self.cfg['background_database_num']]
             self.name2back_database = {name:parse_database_name(name) for name in background_names}
             self.name2back_database.update(self.name2database)
